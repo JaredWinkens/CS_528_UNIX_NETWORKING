@@ -53,7 +53,7 @@ void query_clients() {
 		if (!(tmp = tmp->next)) {
 			printf("ERROR: Client is NULL; This WILL cause major problems.\n");
 		}
-	} while (mp != FIRST);
+	} while (tmp != FIRST);
 	printf("END OF CLIENT LIST\n\n");
 };
 
