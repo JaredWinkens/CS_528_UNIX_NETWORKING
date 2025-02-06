@@ -50,7 +50,7 @@ void query_clients() {
 	printf("CONNECTED CLIENTS:\n");
 	volatile struct Client *tmp = FIRST;
 	do {
-		printf("\tClient Pointer (relative) = %s\n", tmp->ip);
+		printf("\tName: %s | IP: %s\n", tmp->name, tmp->ip);
 		if (!(tmp = tmp->next)) {
 			printf("ERROR: Client is NULL; This WILL cause major problems.\n");
 		}
@@ -69,7 +69,6 @@ void relay(struct Client *sender, char *message, int bytes_recvd) {
 	}
 
 	volatile struct Client *curr = sender;
-	printf("Target value: %s\n", sender->ip);
 	do {
 		// Move to next client, check if NULL
 		if (!(curr = curr->next)) {
