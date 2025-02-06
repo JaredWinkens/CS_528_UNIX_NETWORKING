@@ -23,7 +23,7 @@
 #define BACKLOG 10	 // how many pending connections queue will hold
 
 #define MESSAGE_LEN		1024
-#define USERNAME_LEN	16 // Unused ATM
+#define USERNAME_LEN	7 // Includes termination character
 
 
 
@@ -62,7 +62,7 @@ void query_clients() {
 // Relays a message to all other clients
 void relay(struct Client *sender, char *message, int bytes_recvd) {
 	if (sender-> next == sender) {
-		if (send(sender->sockfd, "You are alone, child.", 22, 0) == -1) {
+		if (send(sender->sockfd, "SERVER\0You are alone, child.", 29, 0) == -1) {
 			perror("Failed to notify client of their lonliness");
 		}
 		return;
@@ -76,7 +76,7 @@ void relay(struct Client *sender, char *message, int bytes_recvd) {
 			break; // Not sure what to do if a client is NULL. I think it's just donzo at that point
 		}
 		// Relay message to current client
-		if (send(curr->sockfd, message, MESSAGE_LEN, 0) == -1)
+		if (send(curr->sockfd, message, bytes_recvd, 0) == -1)
 			perror("Failed to relay message to client");
 	} while (curr->next != sender); // Break when next client is the sender
 };
@@ -92,7 +92,10 @@ void disconnect_client(volatile struct Client *client) {
 		// If we're removing the "first" client, assign a new "first" client
 		if (client == FIRST) FIRST = client->next;
 		
-		// Notify all clients of the disconnect
+		// Get disconnect message
+		char discon_message[USERNAME_LEN+20];
+		sprintf(discon_message, "(%s) has disconnected", client->name);
+		
 		volatile struct Client *curr = client;
 		do { 
 			// Move to next client, check if NULL
@@ -100,7 +103,7 @@ void disconnect_client(volatile struct Client *client) {
 				break; // Not sure what to do if a client is NULL. I think it's just donzo at that point
 			}
 			// Notify current client of disconnect
-			if (send(curr->sockfd, "(CLIENT) has disconnected", 25, 0) == -1)
+			if (send(curr->sockfd, discon_message, USERNAME_LEN+20, 0) == -1)
 				perror("Failed to notify of disconnect");
 		} while (curr->next != client); // Break when next client is disconnecting client
 		
@@ -121,22 +124,40 @@ void disconnect_client(volatile struct Client *client) {
 void* client_loop(void* args) {
 	// Get pointer to client info
 	volatile struct Client *this_client = (volatile struct Client*)args;
+	memset(this_client->name, USERNAME_LEN, 0);
+	
+	
+	// Prompt for client username
+	if (send(this_client->sockfd, "SERVER\0Enter your username (up to 6 characters)", 48, 0) == -1) {
+		perror("Failed request username from client");
+		disconnect_client(this_client);
+		return;
+	}
+	// Get client username
+	int bytes_recvd = recv(this_client->sockfd, this_client->name, 6, 0);
+	if (bytes_recvd < 1) {
+		strncpy(this_client->name, "ERROR\0", USERNAME_LEN);
+	};
+	this_client->name[bytes_recvd] = '\0'; // Add termination character
+	bytes_recvd = -1; // Reset value
+
 
 	// Initialize message buffer
-	char buffer[MESSAGE_LEN];
-	memset(buffer, MESSAGE_LEN, 0);
+	char total_buffer[MESSAGE_LEN+USERNAME_LEN];
+	char *msg_buffer = total_buffer + USERNAME_LEN;
+	memset(total_buffer, MESSAGE_LEN, 0);
+	strncpy(total_buffer, this_client->name, USERNAME_LEN);
 
-	int bytes_recvd = -1;
-
-	// Main loop
+	// Main loop (recv -> broadcast -> repeat)
 	do {
 		// Recieve a message from this_client
-		bytes_recvd = recv(this_client->sockfd, buffer, MESSAGE_LEN, 0);
+		bytes_recvd = recv(this_client->sockfd, msg_buffer, MESSAGE_LEN, 0);
 		if (bytes_recvd < 1) {
 			perror("Failed to recieve message from client");
 			break;
 		}
 		// Add termination character
+<<<<<<< HEAD
 		buffer[bytes_recvd] = '\0';
 
 		printf("Buffer: \"%s\"\n", buffer);
@@ -144,6 +165,14 @@ void* client_loop(void* args) {
 		// Relay message to other clients
 		relay(this_client, this_client->ip, sizeof this_client->ip);
 		relay(this_client, buffer, bytes_recvd);
+=======
+		msg_buffer[bytes_recvd] = '\0';
+		
+		printf("(%s): \"%s\"\n", total_buffer, msg_buffer);
+		
+		// Relay message to other clients
+		relay(this_client, total_buffer, bytes_recvd + USERNAME_LEN);
+>>>>>>> 4cac80a6830f250a767e7ec7279beeeb167b4232
 		
 	} while (1);
 	
@@ -166,7 +195,7 @@ void connect_client(volatile struct Client *client) {
 	
 	// Create thread for client, pass in client_loop() as the func, and new_client as the parameter
 	pthread_t client_tid;
-	int tresult = pthread_create(&(client->thread_id), NULL, client_loop, client);
+	int tresult = pthread_create(&(client->thread_id), NULL, client_loop, (void*)client);
 	
 	// If thread creation failed
 	if (tresult != 0) {

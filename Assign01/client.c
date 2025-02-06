@@ -18,7 +18,8 @@
 
 #define PORT "3490" // the port client will be connecting to 
 
-#define MESSAGE_LEN	1024
+#define MESSAGE_LEN		1024
+#define USERNAME_LEN	7
 
 void* recv_loop(void *args) {
 	int sockfd = *(int*)args;
@@ -35,7 +36,7 @@ void* recv_loop(void *args) {
 		}
 		buffer[bytes_recvd] = '\0';
 		
-		printf("(Recvd): \"%s\"\n", buffer); fflush(stdout);
+		printf("(%s): \"%s\"\n", buffer, buffer + USERNAME_LEN); fflush(stdout);
 		
 		memset(buffer, MESSAGE_LEN, 0);
 	} while(1);
@@ -102,6 +103,32 @@ int main(int argc, char *argv[])
 
 	freeaddrinfo(servinfo); // all done with this structure
 	
+	// Initialize buffer for user input
+	char buffer[MESSAGE_LEN];
+	memset(buffer, MESSAGE_LEN, 0);
+	
+	/*
+	// Recieve username prompt
+	int bytes_recvd = recv(sockfd, buffer, MESSAGE_LEN, 0);
+	if (bytes_recvd < 0) {
+		perror("Failed to recieve username prompt from server");
+		close(sockfd);
+		return -1;
+	}
+	printf("(ChatServer): %s\n", buffer);
+	
+	// Get and send username
+	fgets(buffer, sizeof(buffer), stdin);
+	if (send(sockfd, buffer, strlen(buffer)-1, 0) == -1) {
+		perror("Failed to send username to server");
+		close(sockfd);
+		return -2;
+	}
+	memset(buffer, MESSAGE_LEN, 0); // Clear buffer
+	*/
+	
+	
+	
 	// Create thread for recieving messages
 	pthread_t recv_tid = -1;
 	int tresult = pthread_create(&recv_tid, NULL, recv_loop, &sockfd);
@@ -111,15 +138,11 @@ int main(int argc, char *argv[])
 	}
 	pthread_detach(recv_tid);
 	
-	// Initialize buffer for user input
-	char buffer[MESSAGE_LEN];
-	memset(buffer, MESSAGE_LEN, 0);
-	
 	// Main input loop
 	do {
-		if (!fgets(buffer, sizeof(buffer), stdin)) break;
+		if (!fgets(buffer, sizeof(buffer), stdin)) break; // Get message
 		
-		if (send(sockfd, buffer, strlen(buffer)-1, 0) == -1) {
+		if (send(sockfd, buffer, strlen(buffer)-1, 0) == -1) { // Send message
 			perror("Failed to send message to server");
 		}
 	} while(1);
