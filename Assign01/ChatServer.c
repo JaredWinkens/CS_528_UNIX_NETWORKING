@@ -32,6 +32,7 @@ struct Client {
 	int sockfd;
 	pthread_t thread_id;
 	volatile struct Client *next;
+	char ip[INET6_ADDRSTRLEN];
 	char name[USERNAME_LEN];
 };
 
@@ -49,7 +50,7 @@ void query_clients() {
 	printf("CONNECTED CLIENTS:\n");
 	volatile struct Client *tmp = FIRST;
 	do {
-		printf("\tClient Pointer (relative) = %ld\n", (long)(tmp-FIRST));
+		printf("\tClient Pointer (relative) = %s\n", tmp->ip);
 		if (!(tmp = tmp->next)) {
 			printf("ERROR: Client is NULL; This WILL cause major problems.\n");
 		}
@@ -68,7 +69,7 @@ void relay(struct Client *sender, char *message, int bytes_recvd) {
 	}
 
 	volatile struct Client *curr = sender;
-	printf("Target value: %ld\n", (long)sender);
+	printf("Target value: %s\n", sender->ip);
 	do {
 		// Move to next client, check if NULL
 		if (!(curr = curr->next)) {
@@ -137,10 +138,11 @@ void* client_loop(void* args) {
 		}
 		// Add termination character
 		buffer[bytes_recvd] = '\0';
-		
-		printf("(Client): \"%s\"\n", buffer);
+
+		printf("Buffer: \"%s\"\n", buffer);
 		
 		// Relay message to other clients
+		relay(this_client, this_client->ip, sizeof this_client->ip);
 		relay(this_client, buffer, bytes_recvd);
 		
 	} while (1);
@@ -290,6 +292,8 @@ int main(void)
 			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s);
 		printf("server: got connection from %s\n", s);
+		
+		strcpy(new_client->ip,s);
 		
 		connect_client(new_client);
 	}
