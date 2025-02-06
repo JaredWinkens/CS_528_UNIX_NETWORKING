@@ -142,6 +142,11 @@ int main(int argc, char *argv[])
 	do {
 		if (!fgets(buffer, sizeof(buffer), stdin)) break; // Get message
 		
+		if (strncmp("exit",buffer,4) == 0){
+			printf("exiting...\n");
+			break;
+		}
+
 		if (send(sockfd, buffer, strlen(buffer)-1, 0) == -1) { // Send message
 			perror("Failed to send message to server");
 		}
