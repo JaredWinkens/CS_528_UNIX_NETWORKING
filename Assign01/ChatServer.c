@@ -156,23 +156,13 @@ void* client_loop(void* args) {
 			perror("Failed to recieve message from client");
 			break;
 		}
-		// Add termination character
-<<<<<<< HEAD
-		buffer[bytes_recvd] = '\0';
-
-		printf("Buffer: \"%s\"\n", buffer);
-		
-		// Relay message to other clients
-		relay(this_client, this_client->ip, sizeof this_client->ip);
-		relay(this_client, buffer, bytes_recvd);
-=======
+		// Add termination character		
 		msg_buffer[bytes_recvd] = '\0';
 		
 		printf("(%s): \"%s\"\n", total_buffer, msg_buffer);
 		
 		// Relay message to other clients
 		relay(this_client, total_buffer, bytes_recvd + USERNAME_LEN);
->>>>>>> 4cac80a6830f250a767e7ec7279beeeb167b4232
 		
 	} while (1);
 	
