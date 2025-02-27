@@ -23,22 +23,37 @@
 void chat(int sockfd){
     Ollama my_server("http://localhost:11434");
     // Initialize message buffer
-	char total_buffer[MESSAGE_LEN];
-	memset(total_buffer, MESSAGE_LEN, 0);
+	char client_response[MESSAGE_LEN];
+	memset (client_response, MESSAGE_LEN, 0);
+
+    ollama::response last_response;
+
     // Main loop (recv -> broadcast -> repeat)
 	do {
-		// Recieve a message from this_client
-		int bytes_recvd = recv(sockfd, total_buffer, MESSAGE_LEN-1, 0);
+		// Recieve a response from this_client
+		int bytes_recvd = recv(sockfd, client_response, MESSAGE_LEN-1, 0);
 		if (bytes_recvd < 1) {
 			perror("Failed to recieve message from client");
 			break;
 		}
 		// Add termination character		
-		total_buffer[bytes_recvd] = '\0';
+	    client_response[bytes_recvd] = '\0';
 		
-		printf("%s\n", total_buffer);
-        ollama::response last_response = my_server.generate("llama3.2", total_buffer);
+        // Print client's response
+        printf("%s\n", "--------------------------------------------------------------");
+		printf("CLIENT: %s\n", client_response);
+        printf("%s\n", "--------------------------------------------------------------");
+
+        sleep(2);
+        // Generate server response from client response
+        last_response = my_server.generate("llama3.2", client_response, last_response);
 		std::string output = last_response.as_json()["response"];
+
+        // Print server response
+        printf("%s\n", "--------------------------------------------------------------");
+        printf("SERVER: %s\n", output.c_str());
+        printf("%s\n", "--------------------------------------------------------------");
+
 		// Relay message to current client
 		if (send(sockfd, output.c_str(), output.length(), 0) == -1)
 			perror("Failed to relay message to client");
@@ -82,6 +97,15 @@ int main(void)
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
+
+    char startingMessage[1000];
+    // Get first message
+	do {
+        printf("Starting Message: ");
+
+		if (fgets(startingMessage, sizeof(startingMessage), stdin)) break; // Get message
+
+	} while(1);
 
     if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
@@ -148,7 +172,11 @@ int main(void)
 
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
-            if (send(new_fd, "How is your day?", 13, 0) == -1)
+            // Print first message
+            printf("%s\n", "--------------------------------------------------------------");
+		    printf("SERVER: %s\n", startingMessage);
+            printf("%s\n", "--------------------------------------------------------------");
+            if (send(new_fd, startingMessage, strlen(startingMessage), 0) == -1)
                 perror("send");
             chat(new_fd);
             close(new_fd);
